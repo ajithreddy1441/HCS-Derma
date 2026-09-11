@@ -1,4 +1,5 @@
 node_modules/
 dist/
 .env
+backend/.env.production
 .DS_Store

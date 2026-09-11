@@ -1,11 +1,16 @@
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+if (process.env.NODE_ENV === 'production') {
+  require('dotenv').config({ path: path.join(__dirname, '..', '.env.production') });
+}
 
 const nodeEnv = process.env.NODE_ENV || 'development';
 const jwtSecret = process.env.JWT_SECRET || 'dev-insecure-secret';
 if (nodeEnv === 'production' && (!process.env.JWT_SECRET || jwtSecret === 'dev-insecure-secret')) {
-  throw new Error('Set a strong JWT_SECRET in backend/.env before running in production');
+  throw new Error('Set a strong JWT_SECRET in backend/.env or Vercel environment variables before running in production');
 }
+
+const onVercel = Boolean(process.env.VERCEL);
 
 module.exports = {
   nodeEnv,
@@ -19,9 +24,11 @@ module.exports = {
     password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'nexus_crm',
   },
-  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
+  frontendUrl:
+    process.env.FRONTEND_URL ||
+    (nodeEnv === 'production' ? 'https://hcs-derma.vercel.app' : 'http://localhost:5173'),
   publicAppUrl: process.env.PUBLIC_APP_URL || process.env.FRONTEND_URL || 'http://localhost:5173',
-  uploadDir: process.env.UPLOAD_DIR || 'uploads',
+  uploadDir: process.env.UPLOAD_DIR || (onVercel ? '/tmp/uploads' : 'uploads'),
   maxFileSizeMb: Number(process.env.MAX_FILE_SIZE_MB || 5),
   shiprocket: {
     email: process.env.SHIPROCKET_EMAIL || '',

@@ -106,7 +106,7 @@ Or in hPanel **Node.js**:
 - Uploads stay in `backend/uploads`
 - QR links use `PUBLIC_APP_URL/scan/<token>`
 
-Do not commit `.env`. Do not use local `VITE_API_URL=http://localhost:5000` for the production build; `frontend/.env.production` already uses `/api` on the same domain.
+Do not commit `.env` or `backend/.env.production`. On Vercel the frontend must use `VITE_API_URL=https://hcs-derma-backend.vercel.app/api` (see `frontend/.env.production`). Same-origin `/api` is only for a single Hostinger Node process.
 
 ## Business rules (enforced)
 

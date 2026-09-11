@@ -3,7 +3,7 @@ const fs = require('fs');
 const multer = require('multer');
 const env = require('../config/env');
 
-const dest = path.join(__dirname, '..', env.uploadDir);
+const dest = path.isAbsolute(env.uploadDir) ? env.uploadDir : path.join(__dirname, '..', env.uploadDir);
 if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
 
 const allowed = new Set(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']);
