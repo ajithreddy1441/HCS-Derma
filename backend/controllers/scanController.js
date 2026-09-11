@@ -2,7 +2,48 @@ const { query } = require('../config/db');
 const asyncHandler = require('../utils/asyncHandler');
 const { success, fail } = require('../utils/response');
 
-async function lookup(value) {
+function normalizeScanValue(value) {
+  let raw = String(value || '').trim();
+  try {
+    raw = decodeURIComponent(raw);
+  } catch {
+    /* keep raw */
+  }
+  try {
+    if (/^https?:\/\//i.test(raw)) {
+      const u = new URL(raw);
+      const m = u.pathname.match(/\/scan\/([^/]+)/i);
+      if (m) return decodeURIComponent(m[1]);
+    }
+  } catch {
+    /* not a URL */
+  }
+  const nested = raw.match(/\/scan\/([^/?#]+)/i);
+  if (nested) {
+    try {
+      return decodeURIComponent(nested[1]);
+    } catch {
+      return nested[1];
+    }
+  }
+  return raw;
+}
+
+function orderId(value) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+async function lookup(input) {
+  const value = normalizeScanValue(input);
+  if (!value) return null;
+
+  const asOrder = value.toUpperCase();
+  if (/^ORD/i.test(value)) {
+    const order = await query('SELECT * FROM orders WHERE public_id=? OR public_id=?', [value, asOrder]);
+    if (order.length) return { kind: 'order', row: order[0] };
+  }
+
   const token = await query('SELECT * FROM qr_codes WHERE token=?', [value]);
   if (token.length) return { kind: 'qr', row: token[0] };
 
@@ -23,7 +64,7 @@ async function lookup(value) {
   const unit = await query('SELECT * FROM product_units WHERE public_id=?', [value]);
   if (unit.length) return { kind: 'unit', row: unit[0] };
 
-  const order = await query('SELECT * FROM orders WHERE public_id=?', [value]);
+  const order = await query('SELECT * FROM orders WHERE public_id=? OR public_id=?', [value, asOrder]);
   if (order.length) return { kind: 'order', row: order[0] };
 
   return null;
@@ -49,9 +90,9 @@ async function pack({ kind, row }, internal) {
         const p = await query('SELECT * FROM products WHERE id=?', [unit.product_id]);
         product = p[0];
       }
-      if (unit?.order_id) row.order_id = unit.order_id;
+      if (orderId(unit?.order_id)) row.order_id = unit.order_id;
     }
-    if (row.order_id) {
+    if (orderId(row.order_id)) {
       const o = await query('SELECT * FROM orders WHERE id=?', [row.order_id]);
       order = o[0];
     }
@@ -60,11 +101,22 @@ async function pack({ kind, row }, internal) {
     unit = row;
     const p = await query('SELECT * FROM products WHERE id=?', [row.product_id]);
     product = p[0];
-    if (row.order_id) {
+    if (orderId(row.order_id)) {
       const o = await query('SELECT * FROM orders WHERE id=?', [row.order_id]);
       order = o[0];
     }
   } else if (kind === 'order') order = row;
+
+  if (!order && product && internal) {
+    const latest = await query(
+      `SELECT o.* FROM orders o
+       JOIN order_items oi ON oi.order_id = o.id
+       WHERE oi.product_id=?
+       ORDER BY o.id DESC LIMIT 1`,
+      [product.id]
+    );
+    order = latest[0] || null;
+  }
 
   let items = [];
   if (order) {
