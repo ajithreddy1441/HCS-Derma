@@ -1,4 +1,4 @@
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const { query, withTransaction } = require('../config/db');
 const asyncHandler = require('../utils/asyncHandler');
 const { success, fail } = require('../utils/response');

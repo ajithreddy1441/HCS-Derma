@@ -7,10 +7,11 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "seed": "node scripts/seed.js",
-    "build:web": "npm run build --prefix ../frontend && node scripts/prepare-production.js"
+    "build:web": "npm run build --prefix ../frontend && node scripts/prepare-production.js",
+    "vercel-build": "echo ok"
   },
   "dependencies": {
-    "bcrypt": "^5.1.1",
+    "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "exceljs": "^4.4.0",

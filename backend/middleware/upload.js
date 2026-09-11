@@ -4,7 +4,11 @@ const multer = require('multer');
 const env = require('../config/env');
 
 const dest = path.isAbsolute(env.uploadDir) ? env.uploadDir : path.join(__dirname, '..', env.uploadDir);
-if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
+try {
+  if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
+} catch (err) {
+  console.error('Could not create upload dir', dest, err.message);
+}
 
 const allowed = new Set(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']);
 

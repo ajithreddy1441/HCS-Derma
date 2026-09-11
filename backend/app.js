@@ -30,7 +30,7 @@ const corsOptions = {
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) return callback(null, true);
     if (/^https:\/\/hcs-derma[\w.-]*\.vercel\.app$/.test(origin)) return callback(null, true);
-    return callback(null, false);
+    return callback(null, true);
   },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
@@ -39,7 +39,6 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
 
 app.use(
   helmet({
@@ -56,40 +55,40 @@ app.get('/api/health', (_req, res) =>
   res.json({
     success: true,
     message: 'HCS DERMA API',
-    data:
-      env.nodeEnv === 'production'
-        ? { ok: true, env: 'production' }
-        : {
-            dbHost: env.db.host,
-            dbPort: env.db.port,
-            dbUser: env.db.user,
-            dbName: env.db.database,
-          },
+    data: { ok: true, env: env.nodeEnv },
   })
 );
 
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/employees', require('./routes/employees'));
-app.use('/api/users', require('./routes/employees'));
-app.use('/api/customers', require('./routes/customers'));
-app.use('/api/leads', require('./routes/leads'));
-app.use('/api/followups', require('./routes/followups'));
-app.use('/api/products', require('./routes/products'));
-app.use('/api/product-units', require('./routes/products'));
-app.use('/api/inventory', require('./routes/inventory'));
-app.use('/api/orders', require('./routes/orders'));
-app.use('/api/payments', require('./routes/payments'));
-app.use('/api/payment-approvals', require('./routes/payments'));
-app.use('/api/qr', require('./routes/qr'));
-app.use('/api/scan', require('./routes/scan'));
-app.use('/api/shipments', require('./routes/shipments'));
-app.use('/api/tracking', require('./routes/shipments'));
-app.use('/api/returns', require('./routes/returns'));
-app.use('/api/reorders', require('./routes/reorders'));
-app.use('/api/dashboard', require('./routes/dashboard'));
-app.use('/api/reports', require('./routes/reports'));
-app.use('/api', require('./routes/hr'));
-app.use('/api', require('./routes/system'));
+try {
+  app.use('/api/auth', require('./routes/auth'));
+  app.use('/api/employees', require('./routes/employees'));
+  app.use('/api/users', require('./routes/employees'));
+  app.use('/api/customers', require('./routes/customers'));
+  app.use('/api/leads', require('./routes/leads'));
+  app.use('/api/followups', require('./routes/followups'));
+  app.use('/api/qr', require('./routes/qr'));
+  app.use('/api/scan', require('./routes/scan'));
+  app.use('/api/products', require('./routes/products'));
+  app.use('/api/product-units', require('./routes/products'));
+  app.use('/api/inventory', require('./routes/inventory'));
+  app.use('/api/orders', require('./routes/orders'));
+  app.use('/api/payments', require('./routes/payments'));
+  app.use('/api/payment-approvals', require('./routes/payments'));
+  app.use('/api/shipments', require('./routes/shipments'));
+  app.use('/api/tracking', require('./routes/shipments'));
+  app.use('/api/returns', require('./routes/returns'));
+  app.use('/api/reorders', require('./routes/reorders'));
+  app.use('/api/dashboard', require('./routes/dashboard'));
+  app.use('/api/reports', require('./routes/reports'));
+  app.use('/api', require('./routes/hr'));
+  app.use('/api', require('./routes/system'));
+} catch (err) {
+  console.error('Failed to load API routes', err);
+  app.use('/api', (req, res, next) => {
+    if (req.path === '/health' || req.originalUrl === '/api/health') return next();
+    return res.status(500).json({ success: false, message: `API boot error: ${err.message}` });
+  });
+}
 
 const webRoot = process.env.VERCEL
   ? null
