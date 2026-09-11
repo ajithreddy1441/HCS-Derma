@@ -318,15 +318,60 @@ async function recordScan(req, found, data) {
   }
 }
 
+async function markQrScanned(found, req) {
+  if (found.kind !== 'qr' || !found.row?.id) return;
+  try {
+    await query('UPDATE qr_codes SET scanned_at=NOW(), scanned_by=COALESCE(?, scanned_by) WHERE id=?', [
+      req.user?.employee_id || null,
+      found.row.id,
+    ]);
+  } catch (err) {
+    console.error('mark qr scanned', err.message);
+  }
+}
+
 exports.history = asyncHandler(async (_req, res) => {
   await ensureScanHistory();
-  const items = await query(
+  const fromQr = await query(
+    `SELECT CONCAT('qr-', q.id) AS id,
+            q.token AS lookup_value,
+            'qr' AS kind,
+            q.id AS qr_id,
+            q.qr_number,
+            COALESCE(q.product_id, u.product_id) AS product_id,
+            p.name AS product_name,
+            COALESCE(p.sku, CAST(q.qr_number AS CHAR)) AS product_sku,
+            COALESCE(q.order_id, u.order_id) AS order_id,
+            o.public_id AS order_public_id,
+            c.name AS customer_name,
+            COALESCE(q.scanned_at, q.created_at) AS created_at,
+            e.name AS employee_name
+     FROM qr_codes q
+     LEFT JOIN product_units u ON u.id = q.product_unit_id
+     LEFT JOIN products p ON p.id = COALESCE(q.product_id, u.product_id)
+     LEFT JOIN orders o ON o.id = COALESCE(q.order_id, u.order_id)
+     LEFT JOIN customers c ON c.id = o.customer_id
+     LEFT JOIN employees e ON e.id = q.scanned_by
+     WHERE q.order_id IS NOT NULL OR u.order_id IS NOT NULL OR q.scanned_at IS NOT NULL
+     ORDER BY COALESCE(q.scanned_at, q.created_at) DESC, q.id DESC
+     LIMIT 80`
+  );
+  const fromLog = await query(
     `SELECT h.*, e.name AS employee_name
      FROM scan_history h
      LEFT JOIN employees e ON e.id = h.employee_id
      ORDER BY h.id DESC LIMIT 80`
   );
-  return success(res, 'OK', { items });
+  const seen = new Set();
+  const items = [];
+  for (const row of [...fromLog, ...fromQr]) {
+    const key = row.qr_number != null ? `n-${row.qr_number}` : `v-${row.lookup_value || row.id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    items.push(row);
+  }
+  items.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  return success(res, 'OK', { items: items.slice(0, 80) });
 });
 
 exports.publicScan = asyncHandler(async (req, res) => {
@@ -334,6 +379,8 @@ exports.publicScan = asyncHandler(async (req, res) => {
   if (!found) return fail(res, 'Not found', 404);
   if (found.kind === 'qr' && found.row.status !== 'ACTIVE') return fail(res, 'QR is not active', 400);
   const data = await pack(found, false);
+  await markQrScanned(found, req);
+  await recordScan(req, found, data);
   return success(res, 'OK', data);
 });
 
@@ -341,6 +388,7 @@ exports.internalScan = asyncHandler(async (req, res) => {
   const found = await lookup(req.params.value);
   if (!found) return fail(res, 'Not found', 404);
   const data = await pack(found, true);
+  await markQrScanned(found, req);
   await recordScan(req, found, data);
   return success(res, 'OK', data);
 });

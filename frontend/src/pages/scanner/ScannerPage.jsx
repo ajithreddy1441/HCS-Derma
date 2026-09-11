@@ -105,7 +105,7 @@ export default function ScannerPage() {
 
       <section className="mt-8">
         <h2 className="text-lg font-semibold">Scanned products</h2>
-        <p className="text-sm text-slate-500">Every scan from this CRM is listed here. Click a row to open details.</p>
+        <p className="text-sm text-slate-500">Phone QR scans and CRM scans both appear here, including QRs already assigned to orders. Click a row to open details.</p>
         <div className="mt-3 space-y-2">
           {history.length === 0 && (
             <p className="rounded-2xl bg-white p-4 text-sm text-slate-500 ring-1 ring-slate-100">No products scanned yet.</p>
@@ -114,7 +114,7 @@ export default function ScannerPage() {
             <button
               key={h.id}
               type="button"
-              onClick={() => h.lookup_value && search(h.lookup_value)}
+              onClick={() => search(h.lookup_value || String(h.qr_number || h.order_public_id || ''))}
               className="w-full rounded-2xl border border-slate-200 bg-white p-4 text-left hover:border-brand-600"
             >
               <div className="flex items-start justify-between gap-3">
