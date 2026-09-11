@@ -1,0 +1,8 @@
+{
+  "name": "hcs-derma-crm",
+  "private": true,
+  "scripts": {
+    "start": "node backend/server.js",
+    "build": "npm install --prefix frontend && npm run build --prefix frontend && node backend/scripts/prepare-production.js"
+  }
+}
