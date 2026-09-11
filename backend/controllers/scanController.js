@@ -2,13 +2,6 @@ const { query } = require('../config/db');
 const asyncHandler = require('../utils/asyncHandler');
 const { success, fail } = require('../utils/response');
 
-function maskMobile(m) {
-  if (!m) return null;
-  const s = String(m);
-  if (s.length < 4) return '****';
-  return `${s.slice(0, 2)}******${s.slice(-2)}`;
-}
-
 async function lookup(value) {
   const token = await query('SELECT * FROM qr_codes WHERE token=?', [value]);
   if (token.length) return { kind: 'qr', row: token[0] };
@@ -73,6 +66,7 @@ async function pack({ kind, row }, internal) {
     }
   } else if (kind === 'order') order = row;
 
+  let items = [];
   if (order) {
     const c = await query('SELECT * FROM customers WHERE id=?', [order.customer_id]);
     customer = c[0];
@@ -80,7 +74,27 @@ async function pack({ kind, row }, internal) {
     payment = pays[0] || null;
     const ships = await query('SELECT * FROM shipments WHERE order_id=?', [order.id]);
     shipment = ships[0] || null;
+    items = await query(
+      `SELECT oi.sku, oi.quantity, oi.unit_price, oi.total, p.name AS product_name, p.image_path, p.public_id AS product_code
+       FROM order_items oi
+       JOIN products p ON p.id = oi.product_id
+       WHERE oi.order_id=?`,
+      [order.id]
+    );
   }
+
+  const qty = items.reduce((sum, it) => sum + Number(it.quantity || 0), 0);
+  const shipping = order
+    ? {
+        name: order.shipping_name || customer?.name || null,
+        mobile: order.shipping_mobile || customer?.mobile || null,
+        email: order.shipping_email || customer?.email || null,
+        address: order.shipping_address || customer?.address || null,
+        city: order.shipping_city || customer?.city || null,
+        state: order.shipping_state || customer?.state || null,
+        pincode: order.shipping_pincode || customer?.pincode || null,
+      }
+    : null;
 
   const publicPayload = {
     product: product
@@ -99,10 +113,32 @@ async function pack({ kind, row }, internal) {
       ? {
           public_id: order.public_id,
           order_date: order.order_date,
-          quantity: null,
+          quantity: qty,
           order_status: order.order_status,
+          payment_status: order.payment_status,
+          total: order.total,
+          items: items.map((it) => ({
+            product_name: it.product_name,
+            product_code: it.product_code,
+            sku: it.sku,
+            quantity: it.quantity,
+            total: it.total,
+            image_path: it.image_path,
+          })),
         }
       : null,
+    customer: customer
+      ? {
+          name: customer.name,
+          public_id: customer.public_id,
+          mobile: customer.mobile,
+          email: customer.email,
+          city: customer.city,
+          state: customer.state,
+          address: customer.address,
+        }
+      : null,
+    shipping,
     delivery: shipment
       ? {
           tracking_status: shipment.tracking_status,
@@ -117,15 +153,7 @@ async function pack({ kind, row }, internal) {
 
   return {
     ...publicPayload,
-    customer: customer
-      ? {
-          name: customer.name,
-          public_id: customer.public_id,
-          mobile: customer.mobile,
-          address: customer.address,
-          city: customer.city,
-        }
-      : null,
+    customer: publicPayload.customer,
     payment: payment
       ? {
           public_id: payment.public_id,
@@ -196,7 +224,6 @@ exports.publicScan = asyncHandler(async (req, res) => {
   if (!found) return fail(res, 'Not found', 404);
   if (found.kind === 'qr' && found.row.status !== 'ACTIVE') return fail(res, 'QR is not active', 400);
   const data = await pack(found, false);
-  if (data.customer) data.customer.mobile = maskMobile(data.customer.mobile);
   return success(res, 'OK', data);
 });
 
