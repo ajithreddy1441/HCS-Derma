@@ -271,6 +271,64 @@ exports.issues = asyncHandler(async (_req, res) => {
   return success(res, 'OK', { items });
 });
 
+async function ensureScanHistory() {
+  await query(
+    `CREATE TABLE IF NOT EXISTS scan_history (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      employee_id BIGINT NULL,
+      lookup_value VARCHAR(255) NULL,
+      kind VARCHAR(40) NULL,
+      qr_id BIGINT NULL,
+      qr_number INT NULL,
+      product_id BIGINT NULL,
+      product_name VARCHAR(200) NULL,
+      product_sku VARCHAR(80) NULL,
+      order_id BIGINT NULL,
+      order_public_id VARCHAR(20) NULL,
+      customer_name VARCHAR(150) NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_sh_created (created_at)
+    ) ENGINE=InnoDB`
+  );
+}
+
+async function recordScan(req, found, data) {
+  try {
+    await ensureScanHistory();
+    await query(
+      `INSERT INTO scan_history
+        (employee_id, lookup_value, kind, qr_id, qr_number, product_id, product_name, product_sku, order_id, order_public_id, customer_name)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+      [
+        req.user?.employee_id || null,
+        req.params.value || null,
+        found.kind,
+        found.kind === 'qr' ? found.row.id : null,
+        data.qr_number || data.qr?.qr_number || null,
+        found.row.product_id || null,
+        data.product?.name || data.order?.items?.[0]?.product_name || null,
+        data.product?.sku || data.order?.items?.[0]?.sku || null,
+        found.kind === 'order' ? found.row.id : found.row.order_id || null,
+        data.order?.public_id || null,
+        data.customer?.name || null,
+      ]
+    );
+  } catch (err) {
+    console.error('scan history', err.message);
+  }
+}
+
+exports.history = asyncHandler(async (_req, res) => {
+  await ensureScanHistory();
+  const items = await query(
+    `SELECT h.*, e.name AS employee_name
+     FROM scan_history h
+     LEFT JOIN employees e ON e.id = h.employee_id
+     ORDER BY h.id DESC LIMIT 80`
+  );
+  return success(res, 'OK', { items });
+});
+
 exports.publicScan = asyncHandler(async (req, res) => {
   const found = await lookup(req.params.value);
   if (!found) return fail(res, 'Not found', 404);
@@ -283,5 +341,6 @@ exports.internalScan = asyncHandler(async (req, res) => {
   const found = await lookup(req.params.value);
   if (!found) return fail(res, 'Not found', 404);
   const data = await pack(found, true);
+  await recordScan(req, found, data);
   return success(res, 'OK', data);
 });

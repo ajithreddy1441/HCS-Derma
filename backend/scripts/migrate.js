@@ -14,6 +14,22 @@ async function run() {
     `ALTER TABLE orders ADD COLUMN shipping_city VARCHAR(80) NULL`,
     `ALTER TABLE orders ADD COLUMN shipping_state VARCHAR(80) NULL`,
     `ALTER TABLE orders ADD COLUMN shipping_pincode VARCHAR(12) NULL`,
+    `CREATE TABLE IF NOT EXISTS scan_history (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      employee_id BIGINT NULL,
+      lookup_value VARCHAR(255) NULL,
+      kind VARCHAR(40) NULL,
+      qr_id BIGINT NULL,
+      qr_number INT NULL,
+      product_id BIGINT NULL,
+      product_name VARCHAR(200) NULL,
+      product_sku VARCHAR(80) NULL,
+      order_id BIGINT NULL,
+      order_public_id VARCHAR(20) NULL,
+      customer_name VARCHAR(150) NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_sh_created (created_at)
+    ) ENGINE=InnoDB`,
     `CREATE TABLE IF NOT EXISTS scan_issues (
       id BIGINT AUTO_INCREMENT PRIMARY KEY,
       qr_id BIGINT NOT NULL,

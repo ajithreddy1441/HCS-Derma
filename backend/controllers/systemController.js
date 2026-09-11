@@ -81,13 +81,22 @@ exports.markAllNotifications = asyncHandler(async (req, res) => {
 
 exports.activity = asyncHandler(async (req, res) => {
   const { limit, offset, page } = pagination(req.query);
-  const items = await query(
-    `SELECT a.*, e.name AS employee_name, e.public_id AS employee_code
-     FROM activity_logs a LEFT JOIN employees e ON e.id=a.employee_id
-     ORDER BY a.id DESC LIMIT ? OFFSET ?`,
-    [limit, offset]
-  );
-  return success(res, 'OK', { items, page });
+  const admin = req.user.role === 'admin';
+  const items = admin
+    ? await query(
+        `SELECT a.*, e.name AS employee_name, e.public_id AS employee_code
+         FROM activity_logs a LEFT JOIN employees e ON e.id=a.employee_id
+         ORDER BY a.id DESC LIMIT ? OFFSET ?`,
+        [limit, offset]
+      )
+    : await query(
+        `SELECT a.*, e.name AS employee_name, e.public_id AS employee_code
+         FROM activity_logs a LEFT JOIN employees e ON e.id=a.employee_id
+         WHERE a.employee_id=?
+         ORDER BY a.id DESC LIMIT ? OFFSET ?`,
+        [req.user.employee_id, limit, offset]
+      );
+  return success(res, 'OK', { items, page, mine: !admin });
 });
 
 exports.audit = asyncHandler(async (req, res) => {

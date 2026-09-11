@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import Skeleton from '../../components/ui/Skeleton';
 
 export default function ActivityPage() {
-  const { can } = useAuth();
+  const { can, user } = useAuth();
   const [tab, setTab] = useState('activity');
   const [rows, setRows] = useState(null);
   useEffect(() => {
@@ -15,7 +15,10 @@ export default function ActivityPage() {
   if (rows == null) return <Skeleton />;
   return (
     <div>
-      <h1 className="text-2xl font-semibold">Activity & audit</h1>
+      <h1 className="text-2xl font-semibold">{user?.role === 'admin' ? 'Activity log' : 'My activity'}</h1>
+      <p className="text-sm text-slate-500">
+        {user?.role === 'admin' ? 'All employee actions across HCS DERMA.' : 'Only your own logins and actions are shown here.'}
+      </p>
       <div className="my-4 flex gap-2">
         <button className={`rounded-full px-3 py-1.5 text-sm ${tab === 'activity' ? 'bg-slate-900 text-white' : 'bg-white ring-1 ring-slate-200'}`} onClick={() => setTab('activity')}>Activity</button>
         {can('audit.view') && <button className={`rounded-full px-3 py-1.5 text-sm ${tab === 'audit' ? 'bg-slate-900 text-white' : 'bg-white ring-1 ring-slate-200'}`} onClick={() => setTab('audit')}>Audit trail</button>}
