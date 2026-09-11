@@ -4,24 +4,30 @@ if (process.env.NODE_ENV === 'production') {
   require('dotenv').config({ path: path.join(__dirname, '..', '.env.production') });
 }
 
+function envVal(name, fallback) {
+  const value = process.env[name];
+  if (!value || value === name || value === `$${name}` || value === `\${${name}}`) return fallback;
+  return value;
+}
+
 const nodeEnv = process.env.NODE_ENV || 'development';
 const jwtSecret =
-  process.env.JWT_SECRET ||
+  envVal('JWT_SECRET') ||
   (process.env.VERCEL ? 'HcsDerma_Jwt_8f3c91a2e7b64d0c5a18f92e4b77c3d1' : 'dev-insecure-secret');
 
 const onVercel = Boolean(process.env.VERCEL);
 
 module.exports = {
   nodeEnv,
-  port: Number(process.env.PORT || 5000),
+  port: Number(envVal('PORT', '5000')),
   jwtSecret,
-  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '8h',
+  jwtExpiresIn: envVal('JWT_EXPIRES_IN', '8h'),
   db: {
-    host: process.env.DB_HOST || '127.0.0.1',
-    port: Number(process.env.DB_PORT || 3306),
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'nexus_crm',
+    host: envVal('DB_HOST', onVercel ? 'srv843.hstgr.io' : '127.0.0.1'),
+    port: Number(envVal('DB_PORT', '3306')),
+    user: envVal('DB_USER', onVercel ? 'u611284906_xova' : 'root'),
+    password: envVal('DB_PASSWORD', ''),
+    database: envVal('DB_NAME', onVercel ? 'u611284906_xova' : 'nexus_crm'),
   },
   frontendUrl:
     process.env.FRONTEND_URL ||
